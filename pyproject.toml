@@ -27,6 +27,10 @@ packages = []
 line-length = 110
 target-version = "py314"
 
+[tool.bench.frappe-dependencies]
+frappe = ">=16.0.0,<17.0.0"
+erpnext = ">=16.0.0,<17.0.0"
+
 [tool.ruff.lint]
 select = [
     "F",
