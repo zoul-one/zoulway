@@ -8,7 +8,7 @@ app_license = "mit"
 # Apps
 # ------------------
 
-# required_apps = []
+required_apps = ["frappe/erpnext", "frappe/hrms"]
 
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
@@ -86,12 +86,13 @@ app_license = "mit"
 # ------------
 
 # before_install = "zoulway.install.before_install"
-# after_install = "zoulway.install.after_install"
+after_install = "zoulway.install.after_install"
+after_migrate = "zoulway.setup.after_migrate"
 
 # Uninstallation
 # ------------
 
-# before_uninstall = "zoulway.uninstall.before_uninstall"
+before_uninstall = "zoulway.uninstall.before_uninstall"
 # after_uninstall = "zoulway.uninstall.after_uninstall"
 
 # Integration Setup
@@ -138,13 +139,11 @@ app_license = "mit"
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+    "Job Opening": {
+		"after_insert": "zoulway.zoulway.custom_scripts.job_opening.job_opening.generate_qr_for_job"
+	},
+}
 
 # Scheduled Tasks
 # ---------------
