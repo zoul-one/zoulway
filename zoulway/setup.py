@@ -3,6 +3,7 @@ import os
 from frappe import _
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from zoulway.custom.custom_field.job_opening import get_job_opening_custom_fields
+from zoulway.custom.custom_field.task import get_task_custom_fields
 
 def after_install():
 	#Creating Zoul Way specific custom fields
@@ -13,6 +14,7 @@ def after_migrate():
 
 def before_uninstall():
     delete_custom_fields(get_job_opening_custom_fields())
+    delete_custom_fields(get_task_custom_fields())
 
 
 def get_custom_fields():
@@ -20,6 +22,7 @@ def get_custom_fields():
 		Method to get all custom fields that need to be created for Zoul Way
 	'''
 	custom_fields = get_job_opening_custom_fields()
+	custom_fields.update(get_task_custom_fields())
 	return custom_fields
 
 def delete_custom_fields(custom_fields: dict):
