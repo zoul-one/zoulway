@@ -1188,37 +1188,70 @@ frappe.pages['zoulway-board'].on_page_load = function (wrapper) {
 		state.add = !state.add;   // simple toggle, same pattern as your menu open/close
 		renderAddMenu();
 	});
-	function isAllowedTo(perm, doctype) {
-		console.log("Perm", perm)
-		if (!perm) { return true; }
-		if (perm === "write") {
-			return frappe.model.can_write(doctype)
-		}
-		if (perm === "delete") {
-			return frappe.model.can_delete(doctype)
-		}
-		if (perm.indexOf("create:") === 0) {
-			return frappe.model.can_create(perm.split(":")[1]);
-		}
-		return true;
-	}
-	function renderAddMenu() {
-		var el = document.getElementById("add-menu");
-		if (!state.add) {
-			el.style.display = "none";
-			el.innerHTML = "";
-			return;
-		}
-		var canCreateProject = frappe.model.can_create("Project");
-		var canCreateTask = frappe.model.can_create("Task");
-		var canCreateToDo = frappe.model.can_create("ToDo");
-		el.style.display = "block";
-		el.innerHTML = `
-    <div class="d-act ${canCreateProject ? '' : 'd-act-disabled'}" data-act="newproject" ${canCreateProject ? '' : 'data-disabled="true"'}><div>${frappe.utils.icon("folder-plus", "sm")} </div> New project</div>
-    <div class="d-act ${canCreateTask ? '' : 'd-act-disabled'}" data-act="newtask" ${canCreateTask ? '' : 'data-disabled="true"'}><div>${frappe.utils.icon("file-plus", "sm")}</div> New task in project</div>
-    <div class="d-act ${canCreateToDo ? '' : 'd-act-disabled'}" data-act="newtodo" ${canCreateToDo ? '' : 'data-disabled="true"'}><div>${frappe.utils.icon("circle-check-big", "sm")}</div> New to-do in task</div>
-  `;
-	};
+    function isAllowedTo(perm, doctype) {
+        if (!perm) {
+            return true;
+        }
+
+        if (perm === "write") {
+            return frappe.model.can_write(doctype);
+        }
+
+        if (perm === "delete") {
+            return frappe.model.can_delete(doctype);
+        }
+
+        if (perm.indexOf("create:") === 0) {
+            var targetDoctype = perm.split(":")[1];
+            return frappe.model.can_create(targetDoctype);
+        }
+
+        return true;
+    }
+    function renderAddMenu() {
+        var el = document.getElementById("add-menu");
+
+        if (!state.add) {
+            el.style.display = "none";
+            el.innerHTML = "";
+            return;
+        }
+
+        var canCreateProject = frappe.model.can_create("Project");
+        var canCreateTask = frappe.model.can_create("Task");
+        var canCreateToDo = frappe.model.can_create("ToDo");
+
+        el.style.display = "block";
+
+        el.innerHTML = `
+            <div
+                class="d-act ${canCreateProject ? "" : "d-act-disabled"}"
+                data-act="newproject"
+                ${canCreateProject ? "" : 'data-disabled="true"'}
+            >
+                <div>${frappe.utils.icon("folder-plus", "sm")}</div>
+                New project
+            </div>
+
+            <div
+                class="d-act ${canCreateTask ? "" : "d-act-disabled"}"
+                data-act="newtask"
+                ${canCreateTask ? "" : 'data-disabled="true"'}
+            >
+                <div>${frappe.utils.icon("file-plus", "sm")}</div>
+                New task in project
+            </div>
+
+            <div
+                class="d-act ${canCreateToDo ? "" : "d-act-disabled"}"
+                data-act="newtodo"
+                ${canCreateToDo ? "" : 'data-disabled="true"'}
+            >
+                <div>${frappe.utils.icon("circle-check-big", "sm")}</div>
+                New to-do in task
+            </div>
+        `;
+    }
 	document.getElementById("add-menu").addEventListener("click", function (e) {
 		if (e.target.closest("[data-disabled='true']")) {
 			return;   // disabled item — do nothing
@@ -1663,24 +1696,37 @@ frappe.pages['zoulway-board'].on_page_load = function (wrapper) {
 			},
 		})
 	}
-	var deadline_updated = ""
-	async function saveDueDate(doc, id, dateStr) {
-		deadline_updated = await frappe.xcall("zoulway.api.saveDueDate", { doctype: doc, name: id, dateStr: dateStr })
-		return deadline_updated;
-	}
+	var deadline_updated = "";
+
+    async function saveDueDate(doc, id, dateStr) {
+        var response = await frappe.xcall(
+            "zoulway.api.saveDueDate",
+            {
+                doctype: doc,
+                name: id,
+                dateStr: dateStr
+            }
+        );
+
+        deadline_updated = response.date;
+
+        return deadline_updated;
+    }
 	async function getMilestone(project_Id) {
 		var response = await frappe.xcall("zoulway.api.get_milestone", { project: project_Id })
 		return response;
 	}
-	async function deleteDoc(doc, id) {
-		var res = frappe.xcall("zoulway.api.deleteproj", { doctype: doc, id: id })
-		return res;
-	}
+    async function deleteDoc(doctype, name) {
+        return await frappe.xcall("zoulway.api.deleteproj", {
+            doctype: doctype,
+            id: name
+        });
+    }
 	document.getElementById("d-projects").addEventListener("click", function (e) {
 		if (e.target.closest("[data-disabled='true']")) {
 			return;
 		}
-		togglePin = e.target.closest("[data-act='togglepin'")
+		togglePin = e.target.closest("[data-act='togglepin']")
 		if (togglePin) {
 			var doctype = togglePin.getAttribute("data-doc");
 			var id = togglePin.getAttribute("data-id");
@@ -1982,7 +2028,7 @@ frappe.pages['zoulway-board'].on_page_load = function (wrapper) {
 		if (e.target.closest("[data-disabled='true']")) {
 			return;
 		}
-		togglePin = e.target.closest("[data-act='togglepin'")
+		togglePin = e.target.closest("[data-act='togglepin']")
 		if (togglePin) {
 			var doctype = togglePin.getAttribute("data-doc");
 			var id = togglePin.getAttribute("data-id");
@@ -2373,7 +2419,7 @@ frappe.pages['zoulway-board'].on_page_load = function (wrapper) {
 		if (e.target.closest("[data-disabled='true']")) {
 			return;
 		}
-		togglePin = e.target.closest("[data-act='togglepin'")
+		togglePin = e.target.closest("[data-act='togglepin']")
 		if (togglePin) {
 			var doctype = togglePin.getAttribute("data-doc");
 			var id = togglePin.getAttribute("data-id");
@@ -3312,25 +3358,43 @@ frappe.pages['zoulway-board'].on_page_load = function (wrapper) {
 		var pair = colors[status] || ["var(--text-muted)", "var(--surface-1)"];
 		return `<span class="d-chip" style = "color:${pair[0]}; background:${pair[1]}; border:0.5px solid ${pair[0]}" > ${status}</span>`;
 	}
-	function renderProjectMenuCards(project) {
-		return project_menu_actions.map(function (p) {
-			var docAttr = p.doc ? ` data-doc="${p.doc}"` : "";
-			var allowed = isAllowedTo(p.perm, "Project");
-			console.log("Allowed?", allowed)
-			var disabledAttr = allowed ? "" : ` data-disabled='true'`;
-			var disabledClass = allowed ? "" : ` d-act-disabled`;
-			return `
-			<div class="d-act${disabledClass}" data-act="${p.act}"  data-id="${project.id}" ${docAttr}${disabledAttr}  style="color:${p.color || 'inherit'}">
-			<div>
-			<span style="display:inline-flex; color:${p.color || 'inherit'};" class="${p.act === 'deletedoc' ? 'icon-danger' : ''}">
-			${frappe.utils.icon(p.icon, "sm")}
-			</span>
-			</div>
-			${p.label}
-			</div>
-			`
-		}).join("");
-	}
+    function renderProjectMenuCards(project) {
+        return project_menu_actions.map(function (p) {
+            var docAttr = p.doc ? ` data-doc="${p.doc}"` : "";
+
+            var allowed = isAllowedTo(p.perm, "Project");
+
+            var disabledAttr = allowed
+                ? ""
+                : ` data-disabled="true"`;
+
+            var disabledClass = allowed
+                ? ""
+                : " d-act-disabled";
+
+            return `
+                <div
+                    class="d-act${disabledClass}"
+                    data-act="${p.act}"
+                    data-id="${project.id}"
+                    ${docAttr}
+                    ${disabledAttr}
+                    style="color:${p.color || "inherit"}"
+                >
+                    <div>
+                        <span
+                            style="display:inline-flex; color:${p.color || "inherit"};"
+                            class="${p.act === "deletedoc" ? "icon-danger" : ""}"
+                        >
+                            ${frappe.utils.icon(p.icon, "sm")}
+                        </span>
+                    </div>
+
+                    ${p.label}
+                </div>
+            `;
+        }).join("");
+    }
 	var task_menu_actions = [
 		{ act: "details", icon: "info", label: "Details & activity" },
 		{ act: "gotostatus", icon: "circle-dot", label: "Change status", perm: "write" },
@@ -3345,24 +3409,43 @@ frappe.pages['zoulway-board'].on_page_load = function (wrapper) {
 		{ act: "sendwhatsapp", icon: "send", label: "Send to WhatsApp", doc: "Task" },
 		{ act: "deletedoc", color: "var(--text-danger)", icon: "trash", label: "Delete Task", doc: "Task", perm: "delete" }
 	];
-	function renderTaskMenuCards(task) {
-		return task_menu_actions.map(function (p) {
-			var docAttr = p.doc ? ` data-doc="${p.doc}"` : "";
-			var isAllowed = isAllowedTo(p.perm, "Task");
-			var disabledAttr = (isAllowed) ? "" : ` data-disabled="true"`;
-			var disabledClass = (isAllowed) ? "" : ` d-act-disabled`;
-			return `
-			<div class="d-act${disabledClass}" data-act="${p.act}" data-id="${task.id}"${docAttr}${disabledAttr} style="color:${p.color || 'inherit'}">
-			<div>
-			<span style="display:inline-flex; color:${p.color || 'inherit'};" class="${p.act === 'deletedoc' ? 'icon-danger' : ''}">
-			${frappe.utils.icon(p.icon, "sm")}
-			</span>
-			</div>
-			${p.label}
-			</div>
-			`
-		}).join("");
-	}
+    function renderTaskMenuCards(task) {
+        return task_menu_actions.map(function (p) {
+            var docAttr = p.doc ? ` data-doc="${p.doc}"` : "";
+
+            var allowed = isAllowedTo(p.perm, "Task");
+
+            var disabledAttr = allowed
+                ? ""
+                : ` data-disabled="true"`;
+
+            var disabledClass = allowed
+                ? ""
+                : " d-act-disabled";
+
+            return `
+                <div
+                    class="d-act${disabledClass}"
+                    data-act="${p.act}"
+                    data-id="${task.id}"
+                    ${docAttr}
+                    ${disabledAttr}
+                    style="color:${p.color || "inherit"}"
+                >
+                    <div>
+                        <span
+                            style="display:inline-flex; color:${p.color || "inherit"};"
+                            class="${p.act === "deletedoc" ? "icon-danger" : ""}"
+                        >
+                            ${frappe.utils.icon(p.icon, "sm")}
+                        </span>
+                    </div>
+
+                    ${p.label}
+                </div>
+            `;
+        }).join("");
+    }
 	function prog(percent) {
 		return `
 			<div style = "display:flex; align-items:center; gap:6px; margin-top:4px" >
@@ -4067,14 +4150,54 @@ ${(task.due && task.status !== "Completed") ? propertyRow("Due Date",
 		};
 		document.head.appendChild(script);
 	}
-	async function loadTaskLeadOptions() {
-		var users = await frappe.xcall("zoulway.api.get_users", {});
-		TaskLeadOptions = users.map(function (u) {
-			return u.name
-		})
-		assignees = TaskLeadOptions
-		// persons = TaskLeadOptions
-	}
+async function loadTaskLeadOptions() {
+	var users = await frappe.xcall("zoulway.api.get_users", {});
+
+	TaskLeadOptions = users.map(function (u) {
+		return u.name;
+	});
+
+	assignees = TaskLeadOptions;
+}
+
+var testProjects = [];
+var projectsById = new Map();
+
+var testTasks = [];
+var tasksById = new Map();
+
+var testTodos = [];
+var todosById = new Map();
+
+    async function init() {
+        try {
+            await loadProjects();
+
+            await Promise.all([
+                loadTasks(),
+                loadTodos(),
+                loadNotifCount(),
+                loadDashboard(),
+                loadTaskLeadOptions(),
+                getOptions()
+            ]);
+
+            renderNotifyPanel();
+            renderEmergencyPanel();
+
+            loadFlatpickr();
+            renderPersonFilter();
+
+        } catch (err) {
+            console.error("Board init failed:", err);
+
+            frappe.msgprint(
+                "Something went wrong loading the board. Please refresh the page."
+            );
+        }
+    }
+
+init();
 	var testProjects = [];
 	var projectsById = new Map();
 	var testTasks = [];

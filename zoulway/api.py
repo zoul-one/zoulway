@@ -222,17 +222,25 @@ def get_users(role=None):
 def set_status(doctype, name, status):
 	doc = frappe.get_doc(doctype, name)
 
+	if not frappe.has_permission(doctype, "write", doc):
+		frappe.throw(
+			_("You do not have permission to modify this document")
+		)
+
 	if not doc.meta.has_field("status"):
-		frappe.throw(_("Status field not found"))
+		frappe.throw(
+			_("Status field not found")
+		)
 
 	doc.status = status
-	doc.save(ignore_permissions=True)
+	doc.save()
 
 	return {
 		"success": True,
 		"name": doc.name,
 		"status": doc.status,
 	}
+
 
 
 # =========================================================
@@ -242,6 +250,8 @@ def set_status(doctype, name, status):
 @frappe.whitelist()
 def set_urgency(doctype, name, urgency):
 	doc = frappe.get_doc(doctype, name)
+
+	doc.check_permission("write")
 
 	if doc.meta.has_field("imp_urgency"):
 		doc.imp_urgency = urgency
@@ -255,7 +265,7 @@ def set_urgency(doctype, name, urgency):
 	else:
 		frappe.throw(_("Urgency field not found"))
 
-	doc.save(ignore_permissions=True)
+	doc.save()
 
 	return {
 		"success": True,
@@ -275,14 +285,17 @@ def set_division(task, division):
 	if not doc.meta.has_field("imp_division"):
 		frappe.throw(_("Division field not found"))
 
+	doc.check_permission("write")
+
 	doc.imp_division = division
-	doc.save(ignore_permissions=True)
+	doc.save()
 
 	return {
 		"success": True,
 		"name": doc.name,
 		"division": division,
 	}
+
 
 
 # =========================================================
@@ -296,15 +309,16 @@ def set_lead(task, lead):
 	if not doc.meta.has_field("lead"):
 		frappe.throw(_("Lead field not found"))
 
+	doc.check_permission("write")
+
 	doc.lead = lead
-	doc.save(ignore_permissions=True)
+	doc.save()
 
 	return {
 		"success": True,
 		"name": doc.name,
 		"lead": lead,
 	}
-
 
 # =========================================================
 # PROJECT MANAGER
@@ -314,16 +328,23 @@ def set_lead(task, lead):
 def set_project_manager(project, project_manager):
 	doc = frappe.get_doc("Project", project)
 
+	if not frappe.has_permission("Project", "write", doc):
+		frappe.throw(
+			_("You do not have permission to modify this project")
+		)
+
 	if not doc.meta.has_field("project_manager"):
-		frappe.throw(_("Project Manager field not found"))
+		frappe.throw(
+			_("Project Manager field not found")
+		)
 
 	doc.project_manager = project_manager
-	doc.save(ignore_permissions=True)
+	doc.save()
 
 	return {
 		"success": True,
 		"name": doc.name,
-		"project_manager": project_manager,
+		"project_manager": doc.project_manager,
 	}
 
 
@@ -332,19 +353,34 @@ def set_project_manager(project, project_manager):
 # =========================================================
 
 @frappe.whitelist()
-def update_task_completion(task, completion):
-	doc = frappe.get_doc("Task", task)
+def update_task_completion(task_id, completed_on=None, completed_by=None):
+	doc = frappe.get_doc("Task", task_id)
 
-	if not doc.meta.has_field("progress"):
-		frappe.throw(_("Progress field not found"))
+	if completed_on is not None:
+		if not doc.meta.has_field("completed_on"):
+			frappe.throw(
+				_("Completed On field not found")
+			)
 
-	doc.progress = float(completion or 0)
-	doc.save(ignore_permissions=True)
+		doc.completed_on = completed_on
+
+	if completed_by is not None:
+		if not doc.meta.has_field("completed_by"):
+			frappe.throw(
+				_("Completed By field not found")
+			)
+
+		doc.completed_by = completed_by
+
+	doc.save(
+		ignore_permissions=True
+	)
 
 	return {
 		"success": True,
 		"name": doc.name,
-		"progress": doc.progress,
+		"completed_on": doc.completed_on,
+		"completed_by": doc.completed_by,
 	}
 
 
@@ -356,18 +392,21 @@ def update_task_completion(task, completion):
 def toggle_todo_done(todo):
 	doc = frappe.get_doc("ToDo", todo)
 
+	doc.check_permission("write")
+
 	if doc.status == "Closed":
 		doc.status = "Open"
 	else:
 		doc.status = "Closed"
 
-	doc.save(ignore_permissions=True)
+	doc.save()
 
 	return {
 		"success": True,
 		"name": doc.name,
 		"status": doc.status,
 	}
+
 
 
 # =========================================================
@@ -378,8 +417,10 @@ def toggle_todo_done(todo):
 def assign_todo(todo, user):
 	doc = frappe.get_doc("ToDo", todo)
 
+	doc.check_permission("write")
+
 	doc.allocated_to = user
-	doc.save(ignore_permissions=True)
+	doc.save()
 
 	return {
 		"success": True,
@@ -396,6 +437,11 @@ def assign_todo(todo, user):
 def toggle_pin(doctype, id):
 	doc = frappe.get_doc(doctype, id)
 
+	if not frappe.has_permission(doctype, "write", doc):
+		frappe.throw(
+			_("You do not have permission to modify this document")
+		)
+
 	if doc.meta.has_field("imp_is_pinned"):
 		doc.imp_is_pinned = not doc.imp_is_pinned
 
@@ -403,9 +449,11 @@ def toggle_pin(doctype, id):
 		doc.is_pinned = not doc.is_pinned
 
 	else:
-		frappe.throw(_("Pin field not found"))
+		frappe.throw(
+			_("Pin field not found")
+		)
 
-	doc.save(ignore_permissions=True)
+	doc.save()
 
 	return {
 		"success": True,
@@ -809,42 +857,51 @@ def dashboard_summary(project_id=None):
 
 
 # =========================================================
-# PROJECT PERCENTAGE
+# PROJECT PERCENT COMPLETE
 # =========================================================
 
 @frappe.whitelist()
-def get_project_percent_by_task(project):
-	total = frappe.db.count(
+def get_project_percent_by_task(task_id):
+	task = frappe.get_doc(
 		"Task",
-		filters={
-			"project": project,
-		},
+		task_id
 	)
 
-	completed = frappe.db.count(
+	if not task.project:
+		return {
+			"success": True,
+			"project": None,
+			"percent_complete": 0,
+		}
+
+	tasks = frappe.get_all(
 		"Task",
 		filters={
-			"project": project,
-			"status": [
-				"in",
-				[
-					"Completed",
-					"Cancelled",
-				],
-			],
+			"project": task.project,
 		},
+		fields=[
+			"name",
+			"status",
+		],
 	)
 
-	percentage = (
-		round((completed / total) * 100, 2)
-		if total
-		else 0
-	)
+	if not tasks:
+		percent_complete = 0
+	else:
+		completed_tasks = sum(
+			1
+			for t in tasks
+			if t.status == "Completed"
+		)
+
+		percent_complete = round(
+			(completed_tasks / len(tasks)) * 100
+		)
 
 	return {
-		"total": total,
-		"completed": completed,
-		"percentage": percentage,
+		"success": True,
+		"project": task.project,
+		"percent_complete": percent_complete,
 	}
 
 
@@ -940,10 +997,12 @@ def get_doc_url(doc, id):
 
 @frappe.whitelist()
 def saveDueDate(doctype, name, dateStr):
-	doc = frappe.get_doc(
-		doctype,
-		name,
-	)
+	doc = frappe.get_doc(doctype, name)
+
+	if not frappe.has_permission(doctype, "write", doc):
+		frappe.throw(
+			_("You do not have permission to modify this document")
+		)
 
 	if doc.meta.has_field("exp_end_date"):
 		doc.exp_end_date = dateStr
@@ -956,36 +1015,12 @@ def saveDueDate(doctype, name, dateStr):
 			_("Date field not found")
 		)
 
-	doc.save(
-		ignore_permissions=True
-	)
+	doc.save()
 
 	return {
 		"success": True,
 		"name": doc.name,
 	}
-
-
-# =========================================================
-# MILESTONE
-# =========================================================
-
-@frappe.whitelist()
-def get_milestone(project):
-	if not frappe.db.exists(
-		"DocType",
-		"Project Milestone",
-	):
-		return []
-
-	return frappe.get_all(
-		"Project Milestone",
-		filters={
-			"project": project,
-		},
-		fields="*",
-	)
-
 
 @frappe.whitelist()
 def set_milestone(project, **kwargs):
@@ -1014,20 +1049,24 @@ def delete_milestone(name, project=None):
 
 
 # =========================================================
-# DELETE PROJECT / DOCUMENT
+# DELETE DOCUMENT
 # =========================================================
 
 @frappe.whitelist()
 def deleteproj(doctype, id):
-	if frappe.db.exists(
+	if not frappe.db.exists(doctype, id):
+		frappe.throw(
+			_("{0} {1} does not exist").format(doctype, id)
+		)
+
+	doc = frappe.get_doc(doctype, id)
+
+	doc.check_permission("delete")
+
+	frappe.delete_doc(
 		doctype,
 		id,
-	):
-		frappe.delete_doc(
-			doctype,
-			id,
-			ignore_permissions=True,
-		)
+	)
 
 	return {
 		"success": True,
